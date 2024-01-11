@@ -21,7 +21,7 @@ logger = logging.getLogger("bayesian_blocks")
 def getArguments(names, local_dict, *args, **kwargs):
     """Get the arguments based on the names."""
 
-    return map(local_dict.__getitem__, names)
+    return list(map(local_dict.__getitem__, names))
 # Monkey patch numexpr
 numexpr.necompiler.getArguments = getArguments
 
@@ -70,7 +70,7 @@ def calibrate_prior(desired_p0, n_events, n_sim=10000, n_cpu=multiprocessing.cpu
 
         try:
 
-            for i, this_n_blocks in enumerate(pool.imap(partial_worker, range(n_sim), chunksize=chunksize)):
+            for i, this_n_blocks in enumerate(pool.imap(partial_worker, list(range(n_sim)), chunksize=chunksize)):
 
                 n_intervals = this_n_blocks - 1
 
@@ -115,7 +115,7 @@ def calibrate_prior(desired_p0, n_events, n_sim=10000, n_cpu=multiprocessing.cpu
 
     else:
 
-        for i, this_n_blocks in enumerate(map(partial_worker, range(n_sim))):
+        for i, this_n_blocks in enumerate(map(partial_worker, list(range(n_sim)))):
 
             false_positive += this_n_blocks
 
@@ -186,7 +186,7 @@ def bayesian_blocks_astropy(tt, ttstart, ttstop, p0, bkg_integral_distribution=N
 
     if (bkg_integral_distribution is not None):
 
-        final_edges = map(lambda x: lookup_table[x], edg)
+        final_edges = [lookup_table[x] for x in edg]
 
     else:
 
@@ -360,7 +360,7 @@ def bayesian_blocks(tt, ttstart, ttstop, p0, bkg_integral_distribution=None):
 
     if (bkg_integral_distribution is not None):
 
-        final_edges = map(lambda x: lookup_table[x], edg)
+        final_edges = [lookup_table[x] for x in edg]
 
     else:
 
@@ -384,4 +384,4 @@ if __name__ == "__main__":
             f.write("%s\n" % (t))
 
     res = bayesian_blocks(tt, 0, 1000, 1e-3, None)
-    print res
+    print(res)

@@ -1,6 +1,6 @@
 import json
 import collections
-from util.io_utils import sanitize_filename
+from .util.io_utils import sanitize_filename
 
 
 class ResultsContainer(object):
@@ -43,9 +43,9 @@ class ResultsContainer(object):
 
     def display(self):
 
-        for key, value in self._inner_dict.items():
+        for key, value in list(self._inner_dict.items()):
 
-            print("%40s: %s" % (key, value))
+            print(("%40s: %s" % (key, value)))
 
     def write_to(self, json_file):
         """

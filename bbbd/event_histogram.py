@@ -58,8 +58,7 @@ class EventHistogram(object):
         # Now compute the exposure for each scripts
         if exposure_function is not None:
 
-            self._exposure = np.array(map(lambda (t1,t2): exposure_function(t1 + reference_time, t2 + reference_time),
-                                          zip(self._bin_starts, self._bin_stops)))
+            self._exposure = np.array([exposure_function(t1_t2[0] + reference_time, t1_t2[1] + reference_time) for t1_t2 in zip(self._bin_starts, self._bin_stops)])
 
         else:
 
@@ -335,7 +334,7 @@ class EventHistogram(object):
 
         if not quiet:
             logger.info("Fit results:")
-            logger.info("Coefficients: %s" % map(lambda x:"%.3g" % x, best_fit_coefficients))
+            logger.info("Coefficients: %s" % ["%.3g" % x for x in best_fit_coefficients])
             logger.info("Likelihood value: %s" % (result.fun * log_like_scale))
 
         # Make sure the fit is good

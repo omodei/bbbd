@@ -35,8 +35,7 @@ def get_rate(arrival_times, exposure_function, bins, reference_time, bkg_poly=No
 
     # Get the exposure for each block
 
-    exposure = np.array(map(lambda (t1, t2): exposure_function(t1 + reference_time, t2 + reference_time),
-                            zip(blocks_start, blocks_stop)))
+    exposure = np.array([exposure_function(t1_t2[0] + reference_time, t1_t2[1] + reference_time) for t1_t2 in zip(blocks_start, blocks_stop)])
 
     # Get the rates
     idx = exposure > 0
@@ -63,6 +62,8 @@ def get_rate(arrival_times, exposure_function, bins, reference_time, bkg_poly=No
 
 
 def go(args):
+    # Output directory:
+    out_dir = os.path.dirname(args.outfile)
 
     # Get the logger
     logger = get_logger(os.path.basename(__file__))
@@ -94,7 +95,7 @@ def go(args):
     # Unique file name
 
     root = os.path.splitext(os.path.basename(lle_file_orig))[0]
-    lle_file = "%s_mkt.fit" % root
+    lle_file = "%s/%s_mkt.fit" % (out_dir, root)
 
     logger.info("Running gtmktime")
 
@@ -102,7 +103,7 @@ def go(args):
         gtmktime.run(scfile=ft2_file,
                      filter="(DATA_QUAL>0 || DATA_QUAL==-1) && LAT_CONFIG==1 && IN_SAA!=T && LIVETIME>0 && "
                             "ANGSEP(RA_SCZ, DEC_SCZ, %.3f, %.3f) < %s && "
-                            "ANGSEP(RA_ZENITH, DEC_ZENITH, %.3f, %.3f) < 105" % (ra, dec, args.theta_max, ra, dec),
+                            "ANGSEP(RA_ZENITH, DEC_ZENITH, %.3f, %.3f) < %s" % (ra, dec, args.theta_max, ra, dec, args.zenith_max),
                      roicut="no",
                      evfile=lle_file_orig,
                      outfile=lle_file,
@@ -158,7 +159,7 @@ def go(args):
 
     # Format the off_pulse_intervals from [-400, -20, 150, 500] to ((-400, -20), (150, 500))
 
-    raw_off_pulse_intervals = zip(args.off_pulse_intervals[::2], args.off_pulse_intervals[1::2])
+    raw_off_pulse_intervals = list(zip(args.off_pulse_intervals[::2], args.off_pulse_intervals[1::2]))
 
     # Make sure that the off pulse intervals have at least a bit of exposure
     off_pulse_intervals = []
@@ -217,8 +218,8 @@ def go(args):
     results['background fit gof'] = bkg_gof
 
     # Save background fit plot
-
-    bkg_plot_file = sanitize_filename("bkgfit_%s.png" % trigger_name)
+    
+    bkg_plot_file = sanitize_filename("%s/bkgfit_%s.png" % (out_dir,trigger_name))
 
     logger.info("Saving background fit plot to %s" % bkg_plot_file)
 
@@ -276,7 +277,7 @@ def go(args):
 
     n_intervals = len(blocks) - 1
 
-    bb_file = sanitize_filename("bb_res_%s.png" % trigger_name)
+    bb_file = sanitize_filename("%s/bb_res_%s.png" % (out_dir,trigger_name))
 
     detected = n_intervals > 2
 
@@ -284,11 +285,11 @@ def go(args):
 
     results['number of intervals'] = n_intervals
     results['detected'] = detected
-    results['blocks'] = ",".join(map(lambda x: "%.3f" % x, blocks))
+    results['blocks'] = ",".join(["%.3f" % x for x in blocks])
 
     if detected:
 
-        interesting_intervals = zip(blocks[1:-1], blocks[2:-1])
+        interesting_intervals = list(zip(blocks[1:-1], blocks[2:-1]))
 
         # Print out the off_pulse_intervals (if any)
         logger.info("Found %i interesting intervals between %.3f and %.3f" % (len(interesting_intervals),
@@ -337,8 +338,7 @@ def go(args):
 
         # To get the error we use the best fit values of the simulations obtained above and measure
         # the standard deviation
-        bkg_estimates = map(lambda this_best_fit:llep(max_rate_tstart, max_rate_tstop, this_best_fit),
-                            bkg_sim_best_fits)
+        bkg_estimates = [llep(max_rate_tstart, max_rate_tstop, this_best_fit) for this_best_fit in bkg_sim_best_fits]
 
         highest_net_rate_bkg_err = np.std(bkg_estimates)
 
@@ -400,7 +400,7 @@ def go(args):
         sub.set_xlim([max(search_tstart, min(args.off_pulse_intervals), optimal_bins.min()),
                       min(search_tstop, max(args.off_pulse_intervals), optimal_bins.max())])
 
-        optimal_lc = sanitize_filename("optimal_lc_%s.png" % trigger_name)
+        optimal_lc = sanitize_filename("%s/optimal_lc_%s.png" % (out_dir,trigger_name))
 
         logger.info("Saving optimal light curve %s" % optimal_lc)
 
@@ -439,7 +439,7 @@ def go(args):
         sub.set_xlim([max(optimal_bins.min(), min(args.off_pulse_intervals)),
                       min(optimal_bins.max(), max(args.off_pulse_intervals))])
 
-        optimal_lc = sanitize_filename("optimal_lc_%s.png" % trigger_name)
+        optimal_lc = sanitize_filename("%s/optimal_lc_%s.png" % (out_dir,trigger_name))
 
         logger.info("Saving optimal light curve %s" % optimal_lc)
 
@@ -488,11 +488,18 @@ if __name__ == "__main__":
                         default=None, type=str)
     parser.add_argument("--theta_max", help="Maximum theta. Time intervals where the source is at an off-axis angle "
                                             "larger than this value will be removed from the analysis",
-                                       default=88, type=float)
+                        default=88, type=float)
+
+    parser.add_argument("--zenith_max", help="Maximum Zenith. Time intervals where the source has a zenith angle "
+                        "larger than this value will be removed from the analysis",
+                        default=105, type=float)
+    
     parser.add_argument("--poly_degree", help="Degree for the polynomial to be used in the fit (default: 3)",
                         default=3, type=int)
+
     parser.add_argument("--nbkgsim", help="Number of simulations for the background goodness of fit (default: 1000)",
                         default=1000, type=int)
+
     parser.add_argument("--off_pulse_intervals", help="Definition of the off-pulse off_pulse_intervals for background fitting."
                                                       "Default is '-400 -20 150 500' corresponding to the off_pulse_intervals"
                                                       "-400 - 20 and 150 - 500 (in time since trigger).",
